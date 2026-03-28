@@ -213,7 +213,8 @@ def exportar_kmz(feature_geojson: dict, vertices: list,
     faena_pt.style.iconstyle.color = simplekml.Color.yellow
     faena_pt.style.iconstyle.scale = 1.5
 
-    kmz_path = os.path.join(TEMP_DIR, f"{nombre_faena.replace(' ', '_')}.kmz")
+    nombre_seguro = nombre_faena.replace(' ', '_').replace('/', '-').replace('\\', '-')
+    kmz_path = os.path.join(TEMP_DIR, f"{nombre_seguro}.kmz")
     os.makedirs(os.path.dirname(kmz_path), exist_ok=True)
     kml.savekmz(kmz_path)
     return kmz_path
