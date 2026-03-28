@@ -4,11 +4,21 @@ Configuración central de la app LOROS — Proyecto Prospección Gálvez SpA
 import os
 
 # ── Rutas base ─────────────────────────────────────────────────────────────
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SPECS_DIR = os.path.join(BASE_DIR, "especificaciones")
+BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
+SPECS_DIR  = os.path.join(BASE_DIR, "especificaciones")
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
-TEMP_DIR = os.path.join(BASE_DIR, "temp")
-OUTPUT_DIR = os.path.join(BASE_DIR, "output")
+
+# En nube Linux (Streamlit Cloud) usamos /tmp que siempre existe y es escribible.
+# En Windows usamos carpetas locales junto al proyecto.
+if os.name == "nt":  # Windows local
+    TEMP_DIR   = os.path.join(BASE_DIR, "temp")
+    OUTPUT_DIR = os.path.join(BASE_DIR, "output")
+else:               # Linux / Streamlit Cloud
+    TEMP_DIR   = "/tmp/loros_temp"
+    OUTPUT_DIR = "/tmp/loros_output"
+
+os.makedirs(TEMP_DIR,   exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # ── Shapefile geológico ─────────────────────────────────────────────────────
 SHAPEFILE_PATH = os.path.join(SPECS_DIR, "shape geo", "mapa geo chile.shp")
