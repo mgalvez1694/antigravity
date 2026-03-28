@@ -1,0 +1,16 @@
+streamlit
+streamlit-js-eval
+pandas
+openpyxl
+pyproj
+requests
+geopandas
+shapely
+matplotlib
+contextily
+simplekml
+pdfplumber
+reportlab
+pypdf
+Pillow
+geopy
