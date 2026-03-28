@@ -268,6 +268,7 @@ tabs = st.tabs([
     "🪨 Geología",
     "🧪 Laboratorio",
     "🤖 Interpretación",
+    "🗂️ Catastro Minero",
     "📄 Exportar PDF",
 ])
 
@@ -297,8 +298,62 @@ with tabs[4]:
     lab    = st.session_state.get("laboratorio")
     interp = render_interpretacion(geo, lab)
 
-# ── Tab 6: Exportar PDF ───────────────────────────────────────────────────────
+# ── Tab 6: Catastro Minero Interactivo ───────────────────────────────────────
 with tabs[5]:
+    st.subheader("🗂️ Catastro Minero Interactivo")
+    st.markdown(
+        "<p style='color:#aaa;'>Consulta las concesiones mineras en un radio configurable alrededor de cualquier punto del país.</p>",
+        unsafe_allow_html=True
+    )
+
+    c1, c2, c3 = st.columns([1, 1, 1])
+    with c1:
+        cat_lat = st.number_input("Latitud", value=float(st.session_state.get("coordenadas", {}).get("lat", -27.0) or -27.0),
+                                   format="%.6f", step=0.0001)
+    with c2:
+        cat_lon = st.number_input("Longitud", value=float(st.session_state.get("coordenadas", {}).get("lon", -70.0) or -70.0),
+                                   format="%.6f", step=0.0001)
+    with c3:
+        cat_radio = st.slider("📍 Radio de búsqueda (km)", min_value=1, max_value=50, value=10, step=1)
+        area_aprox = int(cat_radio * cat_radio * 3.1416)
+        st.caption(f"área ≈ {area_aprox:,} km²")
+
+    if st.button("🔍 Buscar Catastro Minero", use_container_width=True, type="primary"):
+        from modules.sernageomin import generar_catastro_minero
+        with st.spinner(f"Consultando concesiones en radio de {cat_radio} km..."):
+            mapa_cat, df_cat = generar_catastro_minero(cat_lon, cat_lat, radio_km=cat_radio)
+        if mapa_cat:
+            st.session_state["catastro_mapa"] = mapa_cat
+            st.session_state["catastro_df"] = df_cat
+            st.success(f"✅ Se encontraron {len(df_cat)} concesiones en el radio seleccionado.")
+        else:
+            st.warning("⚠️ No se encontraron concesiones. Verifica coordenadas o amplía el radio.")
+            st.session_state["catastro_mapa"] = None
+            st.session_state["catastro_df"] = None
+
+    if st.session_state.get("catastro_mapa"):
+        st.image(st.session_state["catastro_mapa"], use_container_width=True)
+
+    if st.session_state.get("catastro_df") is not None:
+        df_show = st.session_state["catastro_df"]
+        st.markdown(f"### 📋 Listado de Concesiones ({len(df_show)} resultados)")
+        st.dataframe(df_show, use_container_width=True, hide_index=True)
+
+        import io
+        buffer = io.BytesIO()
+        df_show.to_excel(buffer, index=False, engine="openpyxl")
+        buffer.seek(0)
+        st.download_button(
+            "📥 Descargar tabla como Excel",
+            data=buffer,
+            file_name=f"catastro_radio{cat_radio}km.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+
+# ── Tab 7: Exportar PDF ───────────────────────────────────────────────────────
+with tabs[6]:
+
     st.markdown("### Imágenes Google Earth")
     st.markdown(
         "<p style='color:#aaa; font-size:0.9rem;'>Sube las imágenes capturadas desde Google Earth Pro "

@@ -214,6 +214,7 @@ def exportar_kmz(feature_geojson: dict, vertices: list,
     faena_pt.style.iconstyle.scale = 1.5
 
     kmz_path = os.path.join(TEMP_DIR, f"{nombre_faena.replace(' ', '_')}.kmz")
+    os.makedirs(os.path.dirname(kmz_path), exist_ok=True)
     kml.savekmz(kmz_path)
     return kmz_path
 
@@ -227,11 +228,13 @@ def abrir_google_earth(kmz_path: str):
 
 
 # ── Catastro Minero a 20km2 ────────────────────────────────────────────────
-def generar_catastro_minero(lon: float, lat: float, rol_objetivo: str = None, radio_km: float = 2.5) -> str | None:
-    """Genera un mapa de concesiones vecinas en un radio aprox de 2.5km desde el centro (área ~20km2)."""
+def generar_catastro_minero(lon: float, lat: float, rol_objetivo: str = None, radio_km: float = 2.5) -> tuple:
+    """Genera mapa + DataFrame de concesiones vecinas en radio configurable. Retorna (img_path, df)."""
     import geopandas as gpd
     import matplotlib.pyplot as plt
     import contextily as ctx
+    
+    import pandas as pd
     
     delta_lat = radio_km / 111.0
     delta_lon = radio_km / 96.0
@@ -240,7 +243,7 @@ def generar_catastro_minero(lon: float, lat: float, rol_objetivo: str = None, ra
         "geometryType": "esriGeometryEnvelope",
         "inSR": "4326",
         "spatialRel": "esriSpatialRelIntersects",
-        "outFields": "NOMBRE,NUMERO_ROL,DV_ROL,TIPO_CONCESION",
+        "outFields": "NOMBRE,NUMERO_ROL,DV_ROL,TIPO_CONCESION,TITULAR_NOMBRE,HECTAREAS,SITUACION_CONCESION,COMUNA",
         "returnGeometry": "true",
         "f": "geojson"
     }
@@ -249,9 +252,18 @@ def generar_catastro_minero(lon: float, lat: float, rol_objetivo: str = None, ra
         r = requests.get(SERNAGEOMIN_LAYER_CONCESION, params=params, timeout=20)
         data = r.json()
         if not data.get("features"):
-            return None
-            
+            return None, None
+
         gdf = gpd.GeoDataFrame.from_features(data["features"], crs="EPSG:4326").to_crs(epsg=3857)
+        
+        # Construir tabla resumen
+        cols_tabla = ["NOMBRE", "TITULAR_NOMBRE", "TIPO_CONCESION", "HECTAREAS", "NUMERO_ROL", "DV_ROL", "SITUACION_CONCESION", "COMUNA"]
+        df_result = pd.DataFrame([{c: feat.get("properties", {}).get(c, "") for c in cols_tabla} for feat in data["features"]])
+        df_result.rename(columns={
+            "NOMBRE": "Concesión", "TITULAR_NOMBRE": "Titular", "TIPO_CONCESION": "Tipo",
+            "HECTAREAS": "Há", "NUMERO_ROL": "N° Rol", "DV_ROL": "DV",
+            "SITUACION_CONCESION": "Situación", "COMUNA": "Comuna"
+        }, inplace=True)
         fig, ax = plt.subplots(figsize=(12, 10), facecolor="#1e1e1e")
         
         # Dibujar polígonos iterando
@@ -286,17 +298,18 @@ def generar_catastro_minero(lon: float, lat: float, rol_objetivo: str = None, ra
         google_sat = "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
         ctx.add_basemap(ax, source=google_sat, zorder=1)
         
-        ax.set_title(f"Catastro Minero Vecinal (~20 km²)", color="white", fontsize=15, pad=15, fontweight="bold")
+        ax.set_title(f"Catastro Minero Vecinal (Radio {radio_km} km | área ≈ {int(radio_km*radio_km*3.14):.0f} km²)",
+                     color="white", fontsize=15, pad=15, fontweight="bold")
         ax.set_axis_off()
         
         out_path = os.path.join(TEMP_DIR, "mapa_catastro.png")
         plt.tight_layout()
         plt.savefig(out_path, dpi=200, bbox_inches="tight", facecolor="#1e1e1e")
         plt.close(fig)
-        return out_path
+        return out_path, df_result
     except Exception as e:
         print(f"Error generando catastro: {e}")
-        return None
+        return None, None
 
 # ── Widget Streamlit ────────────────────────────────────────────────────────
 
